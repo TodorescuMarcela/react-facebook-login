@@ -1,6 +1,6 @@
 {
-  "name": "react-facebook-login",
-  "version": "4.1.1",
+  "name": "react-facebook-login-typed",
+  "version": "4.1.2",
   "description": "A Component React for Facebook Login",
   "main": "dist/facebook-login-with-button.js",
   "scripts": {
@@ -10,7 +10,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/keppelen/react-facebook-login.git"
+    "url": "https://github.com/beqaweb/react-facebook-login.git"
   },
   "keywords": [
     "react",
@@ -22,9 +22,9 @@
   "author": "Giovanni Keppelen <keppelen.as@gmail.com>",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/keppelen/react-facebook-login/issues"
+    "url": "https://github.com/beqaweb/react-facebook-login/issues"
   },
-  "homepage": "https://github.com/keppelen/react-facebook-login",
+  "homepage": "https://github.com/beqaweb/react-facebook-login",
   "devDependencies": {
     "autoprefixer": "^6.0.3",
     "babel": "^6.5.2",
