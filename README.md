@@ -4,7 +4,7 @@
 
 ## Getting Started
 
-- `yarn add react-facebook-login` or `npm install react-facebook-login`
+- `yarn add react-facebook-login-typed` or `npm install react-facebook-login-typed`
 - Your application will also need `react-dom` and `react` installed.
 
 ## Development
