@@ -1,10 +1,7 @@
 const webpack = require('webpack');
 
 module.exports = {
-  entry: {
-    'with-button': ['./src/facebook-with-button.js'],
-    'render-props': ['./src/facebook.js'],
-  },
+  entry: './src/index.js',
 
   module: {
     loaders: [
@@ -19,7 +16,7 @@ module.exports = {
   },
 
   output: {
-    filename: 'dist/facebook-login-[name].js',
+    filename: 'dist/index.js',
     libraryTarget: 'umd',
     library: 'FacebookLogin',
   },
