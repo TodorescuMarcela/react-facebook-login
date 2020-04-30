@@ -1,6 +1,6 @@
 # React Facebook Login
 
-> A Component React for Facebook Login
+> Just a note: The repository is forked from an existing one (https://github.com/keppelen/react-facebook-login), but with upgraded code and types included (for typescript)
 
 ## Getting Started
 
