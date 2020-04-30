@@ -1,8 +1,20 @@
-// @flow
-import React from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import PropTypes from 'prop-types';
-import getParamsFromObject from './objectToParams';
-import decodeParamForKey from './decodeParam';
+
+const getParamsFromObject = params => '?' + Object.keys(params)
+  .map(param => `${param}=${window.encodeURversionmponent(params[param])}`)
+  .join('&');
+
+const decodeParamForKey = (paramString, key) => window.decodeURIComponent(
+  paramString.replace(
+    new RegExp(
+      '^(?:.*[&\\?]' +
+      encodeURIComponent(key).replace(/[\.\+\*]/g, '\\$&') +
+      '(?:\\=([^&]*))?)?.*$', 'i'
+    ),
+    '$1'
+  )
+);
 
 const getIsMobile = () => {
   let isMobile = false;
@@ -16,114 +28,41 @@ const getIsMobile = () => {
   return isMobile;
 };
 
-class FacebookLogin extends React.Component {
+const FacebookLogin = ({
+  appId,
+  xfbml,
+  cookie,
+  version,
+  autoLoad,
+  language,
+  fields,
+  callback,
+  onFailure,
+  isDisabled,
+  scope,
+  onClick,
+  returnScopes,
+  responseType,
+  redirectUri,
+  disableMobileRedirect,
+  authType,
+  state,
+  isMobile,
+  render,
+}) => {
+  const [isSdkLoaded, setIsSdkLoaded] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  static propTypes = {
-    isDisabled: PropTypes.bool,
-    callback: PropTypes.func.isRequired,
-    appId: PropTypes.string.isRequired,
-    xfbml: PropTypes.bool,
-    cookie: PropTypes.bool,
-    authType: PropTypes.string,
-    scope: PropTypes.string,
-    state: PropTypes.string,
-    responseType: PropTypes.string,
-    returnScopes: PropTypes.bool,
-    redirectUri: PropTypes.string,
-    autoLoad: PropTypes.bool,
-    disableMobileRedirect: PropTypes.bool,
-    isMobile: PropTypes.bool,
-    fields: PropTypes.string,
-    version: PropTypes.string,
-    language: PropTypes.string,
-    onClick: PropTypes.func,
-    onFailure: PropTypes.func,
-    render: PropTypes.func.isRequired,
-  };
-
-  static defaultProps = {
-    redirectUri: typeof window !== 'undefined' ? window.location.href : '/',
-    scope: 'public_profile,email',
-    returnScopes: false,
-    xfbml: false,
-    cookie: false,
-    authType: '',
-    fields: 'name',
-    version: '3.1',
-    language: 'en_US',
-    disableMobileRedirect: false,
-    isMobile: getIsMobile(),
-    onFailure: null,
-    state: 'facebookdirect',
-    responseType: 'code',
-  };
-
-  state = {
-    isSdkLoaded: false,
-    isProcessing: false,
-  };
-
-  componentDidMount() {
-    this._isMounted = true;
-    if (document.getElementById('facebook-jssdk')) {
-      this.sdkLoaded();
-      return;
-    }
-    this.setFbAsyncInit();
-    this.loadSdkAsynchronously();
-    let fbRoot = document.getElementById('fb-root');
-    if (!fbRoot) {
-      fbRoot = document.createElement('div');
-      fbRoot.id = 'fb-root';
-      document.body.appendChild(fbRoot);
-    }
-  }
-  componentWillReceiveProps(nextProps) {
-    if (this.state.isSdkLoaded && nextProps.autoLoad && ! this.props.autoLoad) {
-      window.FB.getLoginStatus(this.checkLoginAfterRefresh);
-    }
-  }
-
-  componentWillUnmount() {
-    this._isMounted = false;
-  }
-
-  setStateIfMounted(state) {
-    if (this._isMounted) {
-      this.setState(state);
-    }
-  }
-
-  setFbAsyncInit() {
-    const { appId, xfbml, cookie, version, autoLoad } = this.props;
-    window.fbAsyncInit = () => {
-      window.FB.init({
-        version: `v${version}`,
-        appId,
-        xfbml,
-        cookie,
-      });
-      this.setStateIfMounted({ isSdkLoaded: true });
-      if (autoLoad || this.isRedirectedFromFb()) {
-        window.FB.getLoginStatus(this.checkLoginAfterRefresh);
-      }
-    };
-  }
-
-  isRedirectedFromFb() {
+  const isRedirectedFromFb = useCallback(() => {
     const params = window.location.search;
     return (
-      decodeParamForKey(params, 'state') === 'facebookdirect' && (decodeParamForKey(params, 'code') ||
-      decodeParamForKey(params, 'granted_scopes'))
+      decodeParamForKey(params, 'state') === 'facebookdirect' &&
+        (decodeParamForKey(params, 'code') ||
+        decodeParamForKey(params, 'granted_scopes'))
     );
-  }
+  }, []);
 
-  sdkLoaded() {
-    this.setState({ isSdkLoaded: true });
-  }
-
-  loadSdkAsynchronously() {
-    const { language } = this.props;
+  const loadSdkAsynchronously = useCallback(() => {
     ((d, s, id) => {
       const element = d.getElementsByTagName(s)[0];
       const fjs = element;
@@ -133,53 +72,72 @@ class FacebookLogin extends React.Component {
       js.src = `https://connect.facebook.net/${language}/sdk.js`;
       fjs.parentNode.insertBefore(js, fjs);
     })(document, 'script', 'facebook-jssdk');
-  }
+  }, [language]);
 
-  responseApi = (authResponse) => {
-    window.FB.api('/me', { locale: this.props.language, fields: this.props.fields }, (me) => {
+  const responseApi = useCallback((authResponse) => {
+    window.FB.api('/me', { locale: language, fields }, (me) => {
       Object.assign(me, authResponse);
-      this.props.callback(me);
+      callback(me);
     });
-  };
+  }, [language, fields, callback]);
 
-  checkLoginState = (response) => {
-    this.setStateIfMounted({ isProcessing: false });
+  const checkLoginState = useCallback((response) => {
+    setIsProcessing(false);
     if (response.authResponse) {
-      this.responseApi(response.authResponse);
+      responseApi(response.authResponse);
     } else {
-      if (this.props.onFailure) {
-        this.props.onFailure({ status: response.status });
+      if (onFailure) {
+        onFailure({ status: response.status });
       } else {
-        this.props.callback({ status: response.status });
+        callback({ status: response.status });
       }
     }
-  };
+  }, [responseApi, onFailure, callback]);
 
-  checkLoginAfterRefresh = (response) => {
+  const checkLoginAfterRefresh = useCallback((response) => {
     if (response.status === 'connected') {
-      this.checkLoginState(response);
+      checkLoginState(response);
     } else {
-      window.FB.login(loginResponse => this.checkLoginState(loginResponse), true);
+      window.FB.login(loginResponse => checkLoginState(loginResponse), true);
     }
-  };
+  }, [checkLoginState]);
 
-  click = (e) => {
-    if (!this.state.isSdkLoaded || this.state.isProcessing || this.props.isDisabled) {
+  const setFbAsyncInit = useCallback(() => {
+    window.fbAsyncInit = () => {
+      window.FB.init({
+        version: `v${version}`,
+        appId,
+        xfbml,
+        cookie,
+      });
+      setIsSdkLoaded(true);
+      if (autoLoad || isRedirectedFromFb()) {
+        window.FB.getLoginStatus(checkLoginAfterRefresh);
+      }
+    };
+  }, [
+    appId,
+    xfbml,
+    cookie,
+    version,
+    autoLoad,
+    isRedirectedFromFb,
+    checkLoginAfterRefresh,
+  ]);
+
+  const click = useCallback((e) => {
+    if (!isSdkLoaded || isProcessing || isDisabled) {
       return;
     }
-    this.setState({ isProcessing: true });
-    const { scope, appId, onClick, returnScopes, responseType, redirectUri, disableMobileRedirect, authType, state } = this.props;
-
+    setIsProcessing(true);
     if (typeof onClick === 'function') {
       onClick(e);
       if (e.defaultPrevented) {
-        this.setState({ isProcessing: false });
+        setIsProcessing(false);
         return;
       }
     }
-
     const params = {
-
       client_id: appId,
       redirect_uri: redirectUri,
       state,
@@ -188,43 +146,116 @@ class FacebookLogin extends React.Component {
       response_type: responseType,
       auth_type: authType,
     };
-
-    if (this.props.isMobile && !disableMobileRedirect) {
-      window.location.href = `https://www.facebook.com/dialog/oauth${getParamsFromObject(params)}`;
+    if (isMobile && !disableMobileRedirect) {
+      window.location.href =
+        `https://www.facebook.com/dialog/oauth${getParamsFromObject(params)}`;
     } else {
       if (!window.FB) {
-        if (this.props.onFailure) {
-          this.props.onFailure({ status: 'facebookNotLoaded' });
+        if (onFailure) {
+          onFailure({ status: 'facebookNotLoaded' });
         }
-
         return;
       }
-
       window.FB.getLoginStatus(response => {
         if (response.status === 'connected') {
-          this.checkLoginState(response);
+          checkLoginState(response);
         } else {
-          window.FB.login(this.checkLoginState, { scope, return_scopes: returnScopes, auth_type: params.auth_type });
+          window.FB.login(checkLoginState, {
+            scope,
+            return_scopes: returnScopes,
+            auth_type: params.auth_type,
+          });
         }
       });
     }
-  };
+  }, [
+    isSdkLoaded,
+    isProcessing,
+    isDisabled,
+    scope,
+    onClick,
+    returnScopes,
+    responseType,
+    redirectUri,
+    disableMobileRedirect,
+    authType,
+    state,
+    isMobile,
+  ]);
 
-  render() {
-    const { render } = this.props;
+  const propsForRender = useMemo(() => ({
+    onClick: click,
+    isDisabled: !!isDisabled,
+    isProcessing,
+    isSdkLoaded,
+  }), [click, isDisabled, isProcessing, isSdkLoaded]);
 
-    if (!render) {
-      throw new Error('ReactFacebookLogin requires a render prop to render');
+  useEffect(() => {
+    if (document.getElementById('facebook-jssdk')) {
+      setIsSdkLoaded(true);
+      return;
     }
+    setFbAsyncInit();
+    loadSdkAsynchronously();
+    let fbRoot = document.getElementById('fb-root');
+    if (!fbRoot) {
+      fbRoot = document.createElement('div');
+      fbRoot.id = 'fb-root';
+      document.body.appendChild(fbRoot);
+    }
+  }, [setFbAsyncInit, loadSdkAsynchronously]);
 
-    const propsForRender = {
-      onClick: this.click,
-      isDisabled: !!this.props.isDisabled,
-      isProcessing: this.state.isProcessing,
-      isSdkLoaded: this.state.isSdkLoaded,
-    };
-    return this.props.render(propsForRender);
+  useEffect(() => {
+    if (isSdkLoaded && autoLoad) {
+      window.FB.getLoginStatus(checkLoginAfterRefresh);
+    }
+  }, [isSdkLoaded, autoLoad, checkLoginAfterRefresh]);
+
+  if (!render) {
+    throw new Error('ReactFacebookLogin requires a render prop to render');
   }
-}
+
+  return render(propsForRender);
+};
+
+FacebookLogin.propTypes = {
+  isDisabled: PropTypes.bool,
+  callback: PropTypes.func.isRequired,
+  appId: PropTypes.string.isRequired,
+  xfbml: PropTypes.bool,
+  cookie: PropTypes.bool,
+  authType: PropTypes.string,
+  scope: PropTypes.string,
+  state: PropTypes.string,
+  responseType: PropTypes.string,
+  returnScopes: PropTypes.bool,
+  redirectUri: PropTypes.string,
+  autoLoad: PropTypes.bool,
+  disableMobileRedirect: PropTypes.bool,
+  isMobile: PropTypes.bool,
+  fields: PropTypes.string,
+  version: PropTypes.string,
+  language: PropTypes.string,
+  onClick: PropTypes.func,
+  onFailure: PropTypes.func,
+  render: PropTypes.func.isRequired,
+};
+
+FacebookLogin.defaultProps = {
+  redirectUri: typeof window !== 'undefined' ? window.location.href : '/',
+  scope: 'public_profile,email',
+  returnScopes: false,
+  xfbml: false,
+  cookie: false,
+  authType: '',
+  fields: 'name',
+  version: '3.1',
+  language: 'en_US',
+  disableMobileRedirect: false,
+  isMobile: getIsMobile(),
+  onFailure: null,
+  state: 'facebookdirect',
+  responseType: 'code',
+};
 
 export default FacebookLogin;
